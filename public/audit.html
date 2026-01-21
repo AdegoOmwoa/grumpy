@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Duka Audit - Stock & Sales</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📋 Stock Audit & Sell</h1>
+      <a href="/" class="btn">← Back to Dashboard</a>
+    </header>
+
+    <table id="stock-table">
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Subcat</th>
+          <th>Item</th>
+          <th>Units Left</th>
+          <th>Health</th>
+          <th>Unit Price</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <!-- Sell Modal -->
+    <div id="sell-modal" class="modal" style="display:none">
+      <div class="modal-content">
+        <span class="close" onclick="closeModal()">×</span>
+        <h3>Record Sale</h3>
+        <form id="sell-form">
+          <input type="hidden" id="sell-item-id">
+
+          <label>Item</label>
+          <input type="text" id="sell-item-name" readonly>
+
+          <label>Type</label>
+          <select id="sell-type">
+            <option value="unit">Unit</option>
+            <option value="bale">Bale</option>
+          </select>
+
+          <label>Quantity</label>
+          <input type="number" id="sell-quantity" min="1" value="1" required>
+
+          <label>Price per unit (KSh)</label>
+          <input type="number" id="sell-price" step="0.01" required>
+
+          <button type="submit" class="btn primary">Record Sale</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentItems = [];
+
+    async function loadStock() {
+      const res = await fetch('/api/items');
+      currentItems = await res.json();
+      const tbody = document.querySelector('#stock-table tbody');
+      tbody.innerHTML = '';
+
+      currentItems.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${item.category_name}</td>
+          <td>${item.subcategory_name}</td>
+          <td>${item.name}</td>
+          <td>${item.total_units}</td>
+          <td style="color:${item.health_color}">${item.health_status} (${item.health_percentage}%)</td>
+          <td>KSh ${item.unit_price.toLocaleString()}</td>
+          <td><button onclick="openSellModal(${item.id})" class="btn small">Sell</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function openSellModal(itemId) {
+      const item = currentItems.find(i => i.id === itemId);
+      if (!item) return alert('Item not found');
+
+      document.getElementById('sell-item-id').value = item.id;
+      document.getElementById('sell-item-name').value = `${item.category_name} → ${item.subcategory_name} → ${item.name}`;
+      document.getElementById('sell-price').value = item.unit_price;
+      document.getElementById('sell-modal').style.display = 'block';
+    }
+
+    function closeModal() {
+      document.getElementById('sell-modal').style.display = 'none';
+    }
+
+    document.getElementById('sell-form').addEventListener('submit', async e => {
+      e.preventDefault();
+
+      const payload = {
+        item_id: document.getElementById('sell-item-id').value,
+        type: document.getElementById('sell-type').value,
+        quantity: Number(document.getElementById('sell-quantity').value),
+        price: Number(document.getElementById('sell-price').value)
+      };
+
+      try {
+        const res = await fetch('/api/sales', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error(await res.text());
+
+        alert('Sale recorded!');
+        closeModal();
+        loadStock(); // refresh
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    });
+
+    // Close modal when clicking outside
+    window.onclick = e => {
+      const modal = document.getElementById('sell-modal');
+      if (e.target === modal) closeModal();
+    };
+
+    loadStock();
+  </script>
+</body>
+</html>

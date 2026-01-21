@@ -1,0 +1,17 @@
+{
+  "name": "duka-audit-system",
+  "version": "1.0.0",
+  "description": "Duka inventory with category → subcategory → variant structure",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "body-parser": "^2.2.2",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "sqlite3": "^5.1.7"
+  }
+}

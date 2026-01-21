@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Duka Audit - Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🛒 Duka Audit System</h1>
+      <p>Inventory & Sales Management</p>
+      <nav>
+        <a href="/audit" class="btn">Go to Audit / Sell Page →</a>
+      </nav>
+    </header>
+
+    <section>
+      <h2>Add New Item</h2>
+      <form id="add-item-form">
+        <div class="form-row">
+          <div>
+            <label>Category</label>
+            <select id="category-select" required>
+              <option value="">Select category...</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Subcategory</label>
+            <select id="subcategory-select" required disabled>
+              <option value="">Select subcategory...</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label>Item / Variant Name <small>(96 pages, Blue ballpoint, 2kg, etc.)</small></label>
+          <input type="text" id="item-name" placeholder="e.g. 120 pages" required>
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label>Bales Count</label>
+            <input type="number" id="bales-count" min="0" value="0">
+          </div>
+          <div>
+            <label>Units per Bale</label>
+            <input type="number" id="units-per-bale" min="1" value="50">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label>Unit Price (KSh)</label>
+            <input type="number" id="unit-price" step="0.01" min="0">
+          </div>
+          <div>
+            <label>Bale Price (KSh)</label>
+            <input type="number" id="bale-price" step="0.01" min="0">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label>Landing Price (KSh)</label>
+            <input type="number" id="landing-price" step="0.01" min="0" required>
+          </div>
+          <div>
+            <label>Selling Price (KSh)</label>
+            <input type="number" id="selling-price" step="0.01" min="0" required>
+          </div>
+        </div>
+
+        <button type="submit" class="btn primary">Add Item</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Current Items Overview</h2>
+      <table id="items-table">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Subcategory</th>
+            <th>Item</th>
+            <th>Total Units</th>
+            <th>Health</th>
+            <th>Value (KSh)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    // Quick inline script – move to script.js later if you want
+    const catSelect = document.getElementById('category-select');
+    const subSelect = document.getElementById('subcategory-select');
+
+    async function loadCategories() {
+      const res = await fetch('/api/categories');
+      const data = await res.json();
+      data.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        catSelect.appendChild(opt);
+      });
+    }
+
+    catSelect.addEventListener('change', async () => {
+      const catId = catSelect.value;
+      subSelect.innerHTML = '<option value="">Select subcategory...</option>';
+      subSelect.disabled = !catId;
+
+      if (!catId) return;
+
+      const res = await fetch(`/api/subcategories?category_id=${catId}`);
+      const subs = await res.json();
+      subs.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name;
+        subSelect.appendChild(opt);
+      });
+    });
+
+    document.getElementById('add-item-form').addEventListener('submit', async e => {
+      e.preventDefault();
+
+      const payload = {
+        subcategory_id: subSelect.value,
+        name: document.getElementById('item-name').value.trim(),
+        bales_count: Number(document.getElementById('bales-count').value) || 0,
+        units_per_bale: Number(document.getElementById('units-per-bale').value) || 1,
+        bale_price: Number(document.getElementById('bale-price').value) || 0,
+        unit_price: Number(document.getElementById('unit-price').value) || 0,
+        landing_price: Number(document.getElementById('landing-price').value),
+        selling_price: Number(document.getElementById('selling-price').value)
+      };
+
+      try {
+        const res = await fetch('/api/items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error(await res.text());
+        alert('Item added successfully!');
+        e.target.reset();
+        subSelect.disabled = true;
+        loadItems(); // refresh table
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    });
+
+    async function loadItems() {
+      const res = await fetch('/api/items');
+      const items = await res.json();
+      const tbody = document.querySelector('#items-table tbody');
+      tbody.innerHTML = '';
+
+      items.forEach(i => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${i.category_name}</td>
+          <td>${i.subcategory_name}</td>
+          <td>${i.name}</td>
+          <td>${i.total_units}</td>
+          <td style="color:${i.health_color}">${i.health_status} (${i.health_percentage}%)</td>
+          <td>KSh ${(i.total_units * i.unit_price).toLocaleString()}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Init
+    loadCategories();
+    loadItems();
+  </script>
+</body>
+</html>
